@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">{{ user.get_role_display }} Dashboard</h1>
+    </div>
+
+    <div class="row">
+        <!-- Welcome Card -->
+        <div class="col-lg-12 mb-4">
+            <div class="card shadow">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-3">Welcome, {{ user.get_full_name|default:user.username }}!</h2>
+                            <p class="lead">This is your personal dashboard for the Attendance Management System.</p>
+                            <p>From here, you can manage your courses, view attendance records, and access all features based on your role.</p>
+                            
+                            {% if user.is_admin %}
+                            <a href="{% url 'user_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-users"></i> Manage Users
+                            </a>
+                            <a href="{% url 'department_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-building"></i> Manage Departments
+                            </a>
+                            {% endif %}
+                            
+                            <a href="{% url 'course_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-book"></i> View Courses
+                            </a>
+                            
+                            {% if user.is_teacher or user.is_admin %}
+                            <a href="{% url 'session_list' %}" class="btn btn-primary mt-3">
+                                <i class="fas fa-calendar-alt"></i> Manage Sessions
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-4 text-center">
+                            {% if user.profile_pic %}
+                            <img src="{{ user.profile_pic.url }}" class="rounded-circle mb-3" width="150" height="150" alt="Profile Picture">
+                            {% else %}
+                            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                                <span class="text-white" style="font-size: 48px;">{{ user.first_name|first }}{{ user.last_name|first }}</span>
+                            </div>
+                            {% endif %}
+                            <p class="mb-1">{{ user.email }}</p>
+                            <p>
+                                <span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'TEACHER' %}bg-primary{% else %}bg-success{% endif %} px-3 py-2 rounded-pill">
+                                    {{ user.get_role_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Search Card -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Search My Content</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'user_search' %}">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" 
+                                placeholder="{% if user.is_student %}Search my courses, class sessions, attendance records...{% else %}Search my courses, teaching sessions...{% endif %}" 
+                                aria-label="Search">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                        <div class="form-text text-muted">
+                            Search for your {% if user.is_student %}courses, class sessions, and attendance records{% else %}courses and teaching sessions{% endif %} all in one place.
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Role-specific content -->
+    {% if user.is_admin %}
+    <!-- Admin Dashboard -->
+    <div class="row">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Users</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ user_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Courses</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ course_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Departments</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ department_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-building fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Total Sessions</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ session_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if user.is_teacher %}
+    <!-- Teacher Dashboard -->
+    <div class="row">
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">My Courses</h6>
+                </div>
+                <div class="card-body">
+                    {% if user.teacher_courses.all %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Students</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in user.teacher_courses.all %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.department.name }}</td>
+                                    <td>{{ course.students.count }}</td>
+                                    <td>
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-book fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No courses assigned yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Sessions</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Attendance</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in recent_sessions %}
+                                <tr>
+                                    <td>{{ session.course.code }}</td>
+                                    <td>{{ session.date|date:"M d, Y" }}</td>
+                                    <td>{{ session.start_time }} - {{ session.end_time }}</td>
+                                    <td>{{ session.attendance_set.count }} / {{ session.course.students.count }}</td>
+                                    <td>
+                                        <a href="{% url 'session_detail' session.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-calendar-alt fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No recent sessions.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if user.is_student %}
+    <!-- Student Dashboard -->
+    <div class="row">
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">My Courses</h6>
+                </div>
+                <div class="card-body">
+                    {% if user.courses.all %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Teacher</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in user.courses.all %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.teacher.get_full_name }}</td>
+                                    <td>
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-book fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">You are not enrolled in any courses yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6 col-lg-6 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">My Attendance Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-success text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                        <h5>Present</h5>
+                                        <h3>{{ user.attendance_set.all|length }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-danger text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-times-circle fa-2x mb-2"></i>
+                                        <h5>Absent</h5>
+                                        <h3>0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-warning text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-clock fa-2x mb-2"></i>
+                                        <h5>Late</h5>
+                                        <h3>0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-info text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                        <h5>Total</h5>
+                                        <h3>{{ user.attendance_set.all|length }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if user.barcode_id %}
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-barcode me-2"></i> Your Barcode ID: <strong>{{ user.barcode_id }}</strong>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i> You haven't registered a barcode ID yet. 
+                        <a href="{% url 'barcode_registration' %}" class="alert-link">Register now</a> to use barcode attendance scanning.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Include this in your JavaScript -->
+<script>
+const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+fetch('/your-url/', {
+    method: 'POST',
+    headers: {
+        'X-CSRFToken': csrftoken,
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+})
+</script>
+{% endblock %} 

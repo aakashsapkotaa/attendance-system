@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ department.name }} - Department Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Department Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">{{ department.code }} - {{ department.name }}</h1>
+            {% if department.head %}
+            <p class="text-muted">Head: {{ department.head.get_full_name }}</p>
+            {% endif %}
+        </div>
+        <div>
+            <a href="{% url 'department_update' department.id %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit Department
+            </a>
+            <a href="{% url 'department_delete' department.id %}" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete Department
+            </a>
+            <a href="{% url 'department_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Departments
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Department Details -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Department Details</h6>
+                </div>
+                <div class="card-body">
+                    <p><strong>Code:</strong> {{ department.code }}</p>
+                    <p><strong>Name:</strong> {{ department.name }}</p>
+                    
+                    {% if department.head %}
+                    <p>
+                        <strong>Department Head:</strong> 
+                        {{ department.head.get_full_name }} ({{ department.head.email }})
+                    </p>
+                    {% endif %}
+                    
+                    <p><strong>Total Courses:</strong> {{ courses|length }}</p>
+                    <p><strong>Total Teachers:</strong> {{ teachers|length }}</p>
+                    
+                    {% if department.description %}
+                    <div class="mt-4">
+                        <h6 class="font-weight-bold">Description</h6>
+                        <p>{{ department.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Courses in Department -->
+        <div class="col-xl-8 col-lg-7">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Courses in Department</h6>
+                    <a href="{% url 'course_create' %}" class="btn btn-sm btn-primary">
+                        <i class="fas fa-plus"></i> Add New Course
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if courses %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Teacher</th>
+                                    <th>Students</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in courses %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.teacher.get_full_name }}</td>
+                                    <td>{{ course.students.count }}</td>
+                                    <td>
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-book fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No courses in this department yet.</p>
+                        <a href="{% url 'course_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add New Course
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Teachers in Department -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Teachers in Department</h6>
+                </div>
+                <div class="card-body">
+                    {% if teachers %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Courses</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for teacher in teachers %}
+                                <tr>
+                                    <td>{{ teacher.get_full_name }}</td>
+                                    <td>{{ teacher.email }}</td>
+                                    <td>{{ teacher.courses_taught.all|length }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-chalkboard-teacher fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No teachers assigned to this department yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

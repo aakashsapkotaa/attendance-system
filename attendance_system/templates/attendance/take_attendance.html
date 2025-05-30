@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load attendance_extras %}
+
+{% block title %}Take Attendance - {{ session.course.code }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Take Attendance</h1>
+            <p class="text-muted">{{ session.course.code }} - {{ session.course.name }} | {{ session.date|date:"F d, Y" }} ({{ session.start_time }} - {{ session.end_time }})</p>
+        </div>
+        <div>
+            <a href="{% url 'session_detail' session.id %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Session
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Student Attendance</h6>
+            <div>
+                <button type="button" class="btn btn-success btn-sm mark-all" data-status="PRESENT">
+                    <i class="fas fa-check-circle"></i> Mark All Present
+                </button>
+                <button type="button" class="btn btn-danger btn-sm mark-all" data-status="ABSENT">
+                    <i class="fas fa-times-circle"></i> Mark All Absent
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if students %}
+            <form method="post" action="{% url 'take_attendance' session.id %}">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="attendanceTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%">Student ID</th>
+                                <th style="width: 25%">Name</th>
+                                <th style="width: 15%">Status</th>
+                                <th style="width: 50%">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                            {% with record=attendance_records|get_item:student.id %}
+                            <tr>
+                                <td>{{ student.username }}</td>
+                                <td>{{ student.get_full_name }}</td>
+                                <td>
+                                    <select name="student_{{ student.id }}" class="form-select status-select">
+                                        <option value="PRESENT" {% if record.status == 'PRESENT' %}selected{% endif %}>Present</option>
+                                        <option value="ABSENT" {% if record.status == 'ABSENT' %}selected{% endif %}>Absent</option>
+                                        <option value="LATE" {% if record.status == 'LATE' %}selected{% endif %}>Late</option>
+                                        <option value="EXCUSED" {% if record.status == 'EXCUSED' %}selected{% endif %}>Excused</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="notes_{{ student.id }}" class="form-control" placeholder="Optional notes" value="{{ record.comments|default:'' }}">
+                                </td>
+                            </tr>
+                            {% endwith %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Attendance
+                    </button>
+                </div>
+            </form>
+            {% else %}
+            <div class="text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-user-graduate fa-4x text-gray-300"></i>
+                </div>
+                <p class="lead text-gray-800">No students are enrolled in this course.</p>
+                <a href="{% url 'course_detail' session.course.id %}" class="btn btn-primary">
+                    <i class="fas fa-users"></i> Manage Course Students
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mark all students present/absent
+        const markAllButtons = document.querySelectorAll('.mark-all');
+        markAllButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const status = this.dataset.status;
+                const statusSelects = document.querySelectorAll('.status-select');
+                statusSelects.forEach(select => {
+                    select.value = status;
+                    // Trigger change event to update row colors
+                    select.dispatchEvent(new Event('change'));
+                });
+            });
+        });
+        
+        // Highlight row based on status
+        const statusSelects = document.querySelectorAll('.status-select');
+        
+        function updateRowColor(select) {
+            const row = select.closest('tr');
+            row.classList.remove('table-success', 'table-danger', 'table-warning', 'table-info');
+            
+            switch(select.value) {
+                case 'PRESENT':
+                    row.classList.add('table-success');
+                    break;
+                case 'ABSENT':
+                    row.classList.add('table-danger');
+                    break;
+                case 'LATE':
+                    row.classList.add('table-warning');
+                    break;
+                case 'EXCUSED':
+                    row.classList.add('table-info');
+                    break;
+            }
+        }
+        
+        statusSelects.forEach(select => {
+            // Set initial colors
+            updateRowColor(select);
+            
+            // Update when status changes
+            select.addEventListener('change', function() {
+                updateRowColor(this);
+            });
+        });
+    });
+</script>
+{% endblock %} 

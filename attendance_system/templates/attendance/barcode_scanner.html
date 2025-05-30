@@ -1,0 +1,945 @@
+{% extends 'base.html' %}
+
+{% block title %}Barcode Scanner - Attendance Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    #scanner-container {
+        position: relative;
+        max-width: 100%;
+        overflow: hidden;
+        margin: 0 auto;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    #scanner-container video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    
+    #scanner-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.6),
+            transparent 30%,
+            transparent 70%,
+            rgba(0, 0, 0, 0.6)
+        );
+        z-index: 2;
+        pointer-events: none;
+    }
+    
+    #scan-line {
+        position: absolute;
+        width: 80%;
+        height: 3px;
+        left: 10%;
+        background-color: rgba(58, 86, 228, 0.9);
+        z-index: 3;
+        top: 50%;
+        animation: scanAnimation 2s infinite linear;
+        box-shadow: 0 0 12px rgba(58, 86, 228, 0.8);
+    }
+    
+    @keyframes scanAnimation {
+        0% {
+            top: 25%;
+        }
+        50% {
+            top: 75%;
+        }
+        100% {
+            top: 25%;
+        }
+    }
+    
+    .scan-target {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 80%;
+        height: 40%;
+        border: 3px solid rgba(58, 86, 228, 0.8);
+        border-radius: 16px;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+        z-index: 1;
+    }
+    
+    .scan-corner {
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        border-color: #3a56e4;
+        border-style: solid;
+        border-width: 0;
+    }
+    
+    .top-left {
+        top: -3px;
+        left: -3px;
+        border-top-width: 6px;
+        border-left-width: 6px;
+        border-top-left-radius: 12px;
+    }
+    
+    .top-right {
+        top: -3px;
+        right: -3px;
+        border-top-width: 6px;
+        border-right-width: 6px;
+        border-top-right-radius: 12px;
+    }
+    
+    .bottom-left {
+        bottom: -3px;
+        left: -3px;
+        border-bottom-width: 6px;
+        border-left-width: 6px;
+        border-bottom-left-radius: 12px;
+    }
+    
+    .bottom-right {
+        bottom: -3px;
+        right: -3px;
+        border-bottom-width: 6px;
+        border-right-width: 6px;
+        border-bottom-right-radius: 12px;
+    }
+    
+    .attendance-log {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    
+    .scanner-controls {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        z-index: 4;
+    }
+    
+    .scanner-controls .btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-size: 1.2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Barcode Scanner</h1>
+    </div>
+
+    <!-- Hidden elements to store configuration data -->
+    <div id="app-config" class="d-none" 
+         data-api-delete-url="{% url 'api_delete_attendance' %}"
+         data-api-mark-url="{% url 'api_mark_attendance' %}"
+         data-is-admin="{% if user.is_admin %}true{% else %}false{% endif %}">
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Camera Scanner</h6>
+                    <div class="d-flex align-items-center">
+                        <button id="switch-camera" class="btn btn-sm btn-outline-primary me-2">
+                            <i class="fas fa-sync"></i> Switch Camera
+                        </button>
+                        <select id="camera-select" class="form-select form-select-sm">
+                            <option value="">Loading cameras...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Full width camera container -->
+                    <div id="scanner-container" class="mb-4" style="height: 400px;">
+                        <video id="scanner-video" playsinline style="height: 100%; object-fit: cover;"></video>
+                        <div id="scanner-overlay"></div>
+                        <div id="scan-line"></div>
+                        <div class="scan-target">
+                            <div class="scan-corner top-left"></div>
+                            <div class="scan-corner top-right"></div>
+                            <div class="scan-corner bottom-left"></div>
+                            <div class="scan-corner bottom-right"></div>
+                        </div>
+                        <div class="scanner-controls">
+                            <button id="toggle-flash" class="btn btn-light">
+                                <i class="fas fa-bolt"></i>
+                            </button>
+                            <button id="switch-camera-mobile" class="btn btn-light">
+                                <i class="fas fa-sync"></i>
+                            </button>
+                        </div>
+                        <!-- Fullscreen button -->
+                        <button id="toggle-fullscreen" class="btn btn-light" style="position: absolute; top: 20px; right: 20px; z-index: 5;">
+                            <i class="fas fa-expand"></i>
+                        </button>
+                    </div>
+
+                    <div class="alert alert-info d-flex align-items-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <div>Position the barcode within the box to scan.</div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="sessionSelect" class="form-label">Select Session</label>
+                                <select class="form-select" id="sessionSelect" required>
+                                    <option value="" selected disabled>Choose a session...</option>
+                                    {% for session in active_sessions %}
+                                    <option value="{{ session.id }}">{{ session.course.code }} - {{ session.date }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <div class="form-group">
+                                <label for="barcodeInput" class="form-label">Manual Barcode Entry</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="barcodeInput" placeholder="Enter barcode...">
+                                    <button class="btn btn-primary" type="button" id="submitBarcode">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-success w-100 me-2" id="startScanner">
+                            <i class="fas fa-camera me-2"></i> Start Scanner
+                        </button>
+                        <button class="btn btn-danger w-100 ms-2" id="stopScanner" disabled>
+                            <i class="fas fa-stop-circle me-2"></i> Stop Scanner
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Log</h6>
+                </div>
+                <div class="card-body">
+                    <div id="attendanceLog" class="attendance-log">
+                        <div class="text-center py-4">
+                            <i class="fas fa-clipboard-list fa-3x text-gray-300 mb-3"></i>
+                            <p class="text-muted">Scanned barcodes will appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Scanner Stats</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h5 id="totalScanned" class="font-weight-bold text-primary">0</h5>
+                            <p class="text-muted small">Total Scanned</p>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h5 id="successScans" class="font-weight-bold text-success">0</h5>
+                            <p class="text-muted small">Successful</p>
+                        </div>
+                        <div class="col-6">
+                            <h5 id="failedScans" class="font-weight-bold text-danger">0</h5>
+                            <p class="text-muted small">Failed</p>
+                        </div>
+                        <div class="col-6">
+                            <h5 id="duplicateScans" class="font-weight-bold text-warning">0</h5>
+                            <p class="text-muted small">Duplicates</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get configuration from HTML data attributes
+        const configElement = document.getElementById('app-config');
+        const API_DELETE_URL = configElement.dataset.apiDeleteUrl;
+        const API_MARK_URL = configElement.dataset.apiMarkUrl;
+        const IS_ADMIN = configElement.dataset.isAdmin === 'true';
+        
+        // Elements
+        const videoElement = document.getElementById('scanner-video');
+        const scannerContainer = document.getElementById('scanner-container');
+        const cameraSelect = document.getElementById('camera-select');
+        const startButton = document.getElementById('startScanner');
+        const stopButton = document.getElementById('stopScanner');
+        const flashButton = document.getElementById('toggle-flash');
+        const switchCameraButton = document.getElementById('switch-camera');
+        const switchCameraMobileButton = document.getElementById('switch-camera-mobile');
+        const sessionSelect = document.getElementById('sessionSelect');
+        const barcodeInput = document.getElementById('barcodeInput');
+        const submitBarcodeButton = document.getElementById('submitBarcode');
+        const attendanceLog = document.getElementById('attendanceLog');
+        
+        // Add fullscreen button to scanner container
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.className = 'btn btn-light';
+        fullscreenButton.style.position = 'absolute';
+        fullscreenButton.style.top = '20px';
+        fullscreenButton.style.right = '20px';
+        fullscreenButton.style.zIndex = '5';
+        fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';
+        scannerContainer.appendChild(fullscreenButton);
+        
+        // Stats elements
+        const totalScanned = document.getElementById('totalScanned');
+        const successScans = document.getElementById('successScans');
+        const failedScans = document.getElementById('failedScans');
+        const duplicateScans = document.getElementById('duplicateScans');
+        
+        // Stats counters
+        let totalCount = 0;
+        let successCount = 0;
+        let failedCount = 0;
+        let duplicateCount = 0;
+        
+        // Scanner variables
+        let selectedDeviceId;
+        let codeReader = new ZXing.BrowserMultiFormatReader();
+        let isScanning = false;
+        let scannedCodes = new Set();
+        
+        // Flash state
+        let flashOn = false;
+        let stream = null;
+        
+        // Camera variables
+        let videoDevices = [];
+        let currentCameraIndex = 0;
+        
+        // Get cameras
+        async function getCameras() {
+            try {
+                cameraSelect.innerHTML = '<option value="">Loading cameras...</option>';
+                
+                // Force use of user media without any specific constraints to get permissions
+                const initialStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: false 
+                });
+                
+                // Stop this initial stream right away
+                initialStream.getTracks().forEach(track => track.stop());
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                videoDevices = devices.filter(device => device.kind === 'videoinput');
+                cameraSelect.innerHTML = '';
+                
+                if (videoDevices.length === 0) {
+                    cameraSelect.innerHTML = '<option value="">No cameras found</option>';
+                    switchCameraButton.disabled = true;
+                    switchCameraMobileButton.style.display = 'none';
+                    return;
+                }
+                
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    
+                    // Attempt to label Front/Back if possible
+                    let cameraLabel = device.label || `Camera ${index + 1}`;
+                    if (cameraLabel.toLowerCase().includes('back') || 
+                        cameraLabel.toLowerCase().includes('rear') ||
+                        cameraLabel.toLowerCase().includes('environment')) {
+                        cameraLabel += ' (Back)';
+                    } else if (cameraLabel.toLowerCase().includes('front') || 
+                             cameraLabel.toLowerCase().includes('user') ||
+                             cameraLabel.toLowerCase().includes('face')) {
+                        cameraLabel += ' (Front)';
+                    }
+                    
+                    option.text = cameraLabel;
+                    cameraSelect.appendChild(option);
+                });
+                
+                // Enable/disable switch camera button based on number of cameras
+                if (videoDevices.length <= 1) {
+                    switchCameraButton.disabled = true;
+                    switchCameraMobileButton.style.display = 'none';
+                } else {
+                    switchCameraButton.disabled = false;
+                    switchCameraMobileButton.style.display = 'flex';
+                }
+                
+                // Try to select back camera by default, otherwise select first available
+                const backCameraIndex = videoDevices.findIndex(device => 
+                    (device.label || '').toLowerCase().includes('back') ||
+                    (device.label || '').toLowerCase().includes('rear') ||
+                    (device.label || '').toLowerCase().includes('environment')
+                );
+                
+                if (backCameraIndex !== -1) {
+                    cameraSelect.selectedIndex = backCameraIndex;
+                    currentCameraIndex = backCameraIndex;
+                } else if (videoDevices.length > 0) {
+                    cameraSelect.selectedIndex = 0;
+                    currentCameraIndex = 0;
+                }
+                
+                // Show a preview of the camera to ensure it's visible
+                await showCameraPreview();
+                
+            } catch (error) {
+                console.error('Camera access error:', error);
+                cameraSelect.innerHTML = '<option value="">Camera access denied</option>';
+                switchCameraButton.disabled = true;
+                switchCameraMobileButton.style.display = 'none';
+                alert('Please allow camera access to use the scanner. Error: ' + error.message);
+            }
+        }
+        
+        // Show a preview of the selected camera without starting the scanner
+        async function showCameraPreview() {
+            try {
+                // Get the selected device
+                const deviceId = cameraSelect.value;
+                if (!deviceId) return;
+                
+                // Stop any existing preview
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                
+                // Start a new preview stream
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: {exact: deviceId},
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                });
+                
+                // Connect to video element
+                videoElement.srcObject = stream;
+                videoElement.style.display = 'block';
+                await videoElement.play();
+                
+                // Display preview message
+                const previewMsg = document.createElement('div');
+                previewMsg.className = 'alert alert-info mt-3';
+                previewMsg.innerHTML = 'Camera preview active. Press "Start Scanner" to begin scanning.';
+                previewMsg.id = 'preview-message';
+                
+                // Remove any existing preview message
+                const existingMsg = document.getElementById('preview-message');
+                if (existingMsg) existingMsg.remove();
+                
+                // Add after the scanner container
+                scannerContainer.parentNode.insertBefore(previewMsg, scannerContainer.nextSibling);
+                
+                console.log('Camera preview started');
+            } catch (error) {
+                console.error('Error starting camera preview:', error);
+                alert('Could not start camera preview: ' + error.message);
+            }
+        }
+        
+        // Switch camera function
+        async function switchCamera() {
+            if (videoDevices.length <= 1) {
+                alert("Only one camera available");
+                return;
+            }
+            
+            const wasScanning = isScanning;
+            
+            // Always stop the current scanner
+            await stopScannerCompletely();
+            
+            // Increment the camera index and wrap around if needed
+            currentCameraIndex = (currentCameraIndex + 1) % videoDevices.length;
+            
+            // Update the select dropdown
+            cameraSelect.value = videoDevices[currentCameraIndex].deviceId;
+            
+            // Log the switch
+            console.log("Switched to camera:", videoDevices[currentCameraIndex].label);
+            
+            // Show preview of new camera
+            await showCameraPreview();
+            
+            // Restart scanner if it was running
+            if (wasScanning) {
+                // Use timeout to ensure clean stop before restart
+                setTimeout(() => {
+                    startScanner();
+                }, 500);
+            }
+        }
+        
+        // A complete stop function that properly cleans up resources
+        async function stopScannerCompletely() {
+            try {
+                // Reset ZXing reader
+                if (codeReader) {
+                    await codeReader.reset();
+                }
+                
+                // Stop all tracks in the stream
+                if (stream) {
+                    stream.getTracks().forEach(track => {
+                        if (track.readyState === 'live') {
+                            track.stop();
+                        }
+                    });
+                    stream = null;
+                    
+                    // Clear video source
+                    if (videoElement.srcObject) {
+                        videoElement.srcObject = null;
+                    }
+                }
+                
+                flashOn = false;
+                isScanning = false;
+                resetScannerButtons();
+                
+                console.log('Scanner stopped completely');
+                return true;
+            } catch (error) {
+                console.error("Error stopping scanner:", error);
+                return false;
+            }
+        }
+        
+        // Initialize ZXing code reader with optimized settings
+        function initScanner() {
+            const hints = new Map();
+            hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                ZXing.BarcodeFormat.QR_CODE,
+                ZXing.BarcodeFormat.CODE_128,
+                ZXing.BarcodeFormat.CODE_39,
+                ZXing.BarcodeFormat.EAN_13,
+                ZXing.BarcodeFormat.EAN_8,
+                ZXing.BarcodeFormat.UPC_A,
+                ZXing.BarcodeFormat.UPC_E,
+                ZXing.BarcodeFormat.CODABAR
+            ]);
+            codeReader = new ZXing.BrowserMultiFormatReader(hints);
+        }
+        
+        // Toggle fullscreen mode
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                scannerContainer.requestFullscreen().catch(err => {
+                    console.error(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+                fullscreenButton.innerHTML = '<i class="fas fa-compress"></i>';
+            } else {
+                document.exitFullscreen();
+                fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        }
+        
+        // Start scanner
+        async function startScanner() {
+            if (!sessionSelect.value) {
+                alert('Please select a session first');
+                return;
+            }
+            
+            selectedDeviceId = cameraSelect.value;
+            
+            if (!selectedDeviceId) {
+                alert('Please select a camera');
+                return;
+            }
+            
+            try {
+                // Update UI first
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                
+                // Ensure everything is stopped first
+                await stopScannerCompletely();
+                
+                console.log('Starting scanner with device ID:', selectedDeviceId);
+                
+                // Set scanning flag and clear codes
+                isScanning = true;
+                scannedCodes.clear();
+                
+                // Try to get the video stream first
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        deviceId: {exact: selectedDeviceId},
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: selectedDeviceId ? undefined : "environment"
+                    },
+                    audio: false
+                });
+                
+                // Connect stream to video element first to ensure it's visible
+                videoElement.srcObject = stream;
+                videoElement.style.display = 'block';
+                await videoElement.play();
+                
+                console.log('Video stream started and connected to video element');
+                
+                // Then start the decoder with the video stream
+                await codeReader.decodeFromStream(stream, videoElement, (result, error) => {
+                    if (result) {
+                        handleBarcodeResult(result.getText());
+                    }
+                    if (error && !(error instanceof ZXing.NotFoundException)) {
+                        console.error('Decoding error:', error);
+                    }
+                });
+                
+                console.log('Decoder started successfully');
+                
+                // Check if flash is available
+                if (stream && stream.getVideoTracks().length > 0) {
+                    const track = stream.getVideoTracks()[0];
+                    const capabilities = track.getCapabilities();
+                    
+                    if (capabilities && capabilities.torch) {
+                        flashButton.style.display = 'flex';
+                    } else {
+                        flashButton.style.display = 'none';
+                    }
+                }
+                
+                // Remove preview message if exists
+                const previewMsg = document.getElementById('preview-message');
+                if (previewMsg) previewMsg.remove();
+                
+            } catch (error) {
+                console.error('Error starting scanner:', error);
+                alert('Failed to start the scanner: ' + error.message);
+                resetScannerButtons();
+                isScanning = false;
+            }
+        }
+        
+        // Stop scanner - simplified version
+        function stopScanner() {
+            stopScannerCompletely();
+        }
+        
+        // Reset scanner buttons
+        function resetScannerButtons() {
+            startButton.disabled = false;
+            stopButton.disabled = true;
+        }
+        
+        // Toggle flash
+        async function toggleFlash() {
+            if (!stream || !stream.getVideoTracks().length) return;
+            
+            const track = stream.getVideoTracks()[0];
+            
+            if (track) {
+                try {
+                    flashOn = !flashOn;
+                    await track.applyConstraints({
+                        advanced: [{ torch: flashOn }]
+                    });
+                    
+                    flashButton.innerHTML = flashOn ? 
+                        '<i class="fas fa-bolt text-warning"></i>' : 
+                        '<i class="fas fa-bolt"></i>';
+                } catch (error) {
+                    console.error('Error toggling flash:', error);
+                    alert('Flash not available on this camera');
+                    flashOn = false;
+                }
+            }
+        }
+        
+        // Handle barcode result with sound effect
+        function handleBarcodeResult(barcodeValue) {
+            if (!barcodeValue) return;
+            
+            // Play scan sound
+            const scanSound = new Audio('data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAFAAAGhgCFhYWFhYWFhYWFhYWFhYWFhYWFvb29vb29vb29vb29vb29vb29vb3U1NTU1NTU1NTU1NTU1NTU1NTU1NT///////////////////////////////////////////8AAAAKTEFNRTMuMTAwBEgAAAAAAAAAABUgJAMGQQABmgAABoYCkFM7AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADwAABpAAAACAAANIAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=');
+            scanSound.play();
+            
+            totalCount++;
+            totalScanned.textContent = totalCount;
+            
+            // Check if this code has already been scanned
+            if (scannedCodes.has(barcodeValue)) {
+                duplicateCount++;
+                duplicateScans.textContent = duplicateCount;
+                addToLog(barcodeValue, 'duplicate');
+                return;
+            }
+            
+            // Add to set of scanned codes
+            scannedCodes.add(barcodeValue);
+            
+            // Send to server
+            submitAttendance(barcodeValue);
+        }
+        
+        // Submit attendance to server
+        function submitAttendance(barcodeValue) {
+            const sessionId = sessionSelect.value;
+            
+            if (!sessionId) {
+                alert('Please select a session first');
+                return;
+            }
+            
+            // Get CSRF token
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch(API_MARK_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    barcode_id: barcodeValue,
+                    session_id: sessionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    successCount++;
+                    successScans.textContent = successCount;
+                    // Pass the record ID to enable deletion for admins
+                    addToLog(barcodeValue, 'success', data.student.name, data.record_id);
+                } else {
+                    failedCount++;
+                    failedScans.textContent = failedCount;
+                    addToLog(barcodeValue, 'error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting attendance:', error);
+                failedCount++;
+                failedScans.textContent = failedCount;
+                addToLog(barcodeValue, 'error', 'Network error');
+            });
+        }
+        
+        // Admin function to delete attendance records
+        function deleteAttendanceRecord(recordId, logElement) {
+            if (!IS_ADMIN) return; // Safety check
+            
+            if (!confirm('Are you sure you want to delete this attendance record? This action cannot be undone.')) {
+                return;
+            }
+            
+            // Get CSRF token
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch(API_DELETE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body: JSON.stringify({
+                    record_id: recordId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Remove entry from the log
+                    if (logElement) {
+                        logElement.remove();
+                    }
+                    
+                    // Update counter
+                    successCount--;
+                    if (successCount < 0) successCount = 0;
+                    successScans.textContent = successCount;
+                    
+                    // Show notification
+                    alert('Record deleted successfully');
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting record:', error);
+                alert('Network error while trying to delete the record');
+            });
+        }
+        
+        // Add to attendance log with delete buttons for admins
+        function addToLog(barcodeValue, status, message = '', recordId = null) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString();
+            
+            // Clear initial message if this is the first entry
+            if (attendanceLog.querySelector('.text-center')) {
+                attendanceLog.innerHTML = '';
+            }
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'mb-2 p-2 rounded';
+            
+            if (status === 'success') {
+                logEntry.className += ' bg-success-subtle';
+                let entryHTML = `
+                    <div class="d-flex justify-content-between">
+                        <strong>${message}</strong>
+                        <small>${timeString}</small>
+                    </div>
+                    <div class="small text-muted">ID: ${barcodeValue}</div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="small text-success"><i class="fas fa-check-circle"></i> Attendance marked</div>`;
+                
+                // Only add delete button for admins
+                if (IS_ADMIN) {
+                    entryHTML += `
+                        <button class="btn btn-sm btn-outline-danger delete-record" data-record-id="${recordId}">
+                            <i class="fas fa-trash"></i>
+                        </button>`;
+                }
+                
+                entryHTML += `</div>`;
+                logEntry.innerHTML = entryHTML;
+            } else if (status === 'duplicate') {
+                logEntry.className += ' bg-warning-subtle';
+                logEntry.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <strong>${barcodeValue}</strong>
+                        <small>${timeString}</small>
+                    </div>
+                    <div class="small text-warning"><i class="fas fa-exclamation-circle"></i> Already scanned</div>
+                `;
+            } else {
+                logEntry.className += ' bg-danger-subtle';
+                logEntry.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <strong>${barcodeValue}</strong>
+                        <small>${timeString}</small>
+                    </div>
+                    <div class="small text-danger"><i class="fas fa-times-circle"></i> ${message}</div>
+                `;
+            }
+            
+            // Add at the beginning
+            attendanceLog.insertBefore(logEntry, attendanceLog.firstChild);
+            
+            // Add event listener for delete buttons if admin
+            if (IS_ADMIN) {
+                const deleteButtons = logEntry.querySelectorAll('.delete-record');
+                deleteButtons.forEach(button => {
+                    button.addEventListener('click', function() {
+                        const recordId = this.getAttribute('data-record-id');
+                        if (recordId) {
+                            deleteAttendanceRecord(recordId, this.closest('.mb-2'));
+                        }
+                    });
+                });
+            }
+        }
+        
+        // Event listeners
+        startButton.addEventListener('click', startScanner);
+        stopButton.addEventListener('click', stopScanner);
+        flashButton.addEventListener('click', toggleFlash);
+        switchCameraButton.addEventListener('click', switchCamera);
+        switchCameraMobileButton.addEventListener('click', switchCamera);
+        fullscreenButton.addEventListener('click', toggleFullscreen);
+        
+        // Handle manual barcode entry
+        submitBarcodeButton.addEventListener('click', function() {
+            const barcodeValue = barcodeInput.value.trim();
+            if (barcodeValue) {
+                handleBarcodeResult(barcodeValue);
+                barcodeInput.value = '';
+            }
+        });
+        
+        barcodeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                const barcodeValue = barcodeInput.value.trim();
+                if (barcodeValue) {
+                    handleBarcodeResult(barcodeValue);
+                    barcodeInput.value = '';
+                }
+                event.preventDefault();
+            }
+        });
+        
+        // Camera selection from dropdown
+        cameraSelect.addEventListener('change', async function() {
+            // Find the index of the selected device
+            const deviceId = cameraSelect.value;
+            currentCameraIndex = videoDevices.findIndex(device => device.deviceId === deviceId);
+            
+            // Show preview of the selected camera
+            await showCameraPreview();
+            
+            // If currently scanning, restart with new camera
+            if (isScanning) {
+                stopScannerCompletely().then(() => {
+                    setTimeout(() => {
+                        startScanner();
+                    }, 500);
+                });
+            }
+        });
+        
+        // Event listener for exiting fullscreen
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        });
+        
+        // Initialize
+        initScanner();
+        getCameras();
+    });
+
+    // Remove duplicate fullscreen code to prevent conflicts
+    document.addEventListener('fullscreenchange', function() {
+        if (!document.fullscreenElement) {
+            const fullscreenButton = document.getElementById('toggle-fullscreen');
+            if (fullscreenButton) {
+                fullscreenButton.innerHTML = '<i class="fas fa-expand"></i>';
+            }
+        }
+    });
+</script>
+{% endblock %} 

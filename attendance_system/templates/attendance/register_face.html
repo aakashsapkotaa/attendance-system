@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Face - Attendance Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    #face-outline {
+        border: 3px solid #4CAF50;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        animation: pulse 2s infinite;
+        transition: all 0.3s ease-in-out;
+        pointer-events: none;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+    
+    /* Video container */
+    .video-container {
+        position: relative;
+        width: 640px;
+        height: 480px;
+        margin: 0 auto;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .scanning-line {
+        position: absolute;
+        height: 2px;
+        background: linear-gradient(to right, transparent, #4CAF50, transparent);
+        width: 100%;
+        top: 0;
+        animation: scan 2s ease-in-out infinite;
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    @keyframes scan {
+        0% { top: 0; }
+        100% { top: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0" id="register-title">
+                        {% if target_user %}
+                        Register Face for {{ target_user.get_full_name }}
+                        {% else %}
+                        Register Your Face
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if is_admin %}
+                    <div class="alert alert-primary mb-3">
+                        <i class="fas fa-user-shield me-2"></i>
+                        As an administrator, you can register faces for any user in the system.
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="user-select" class="form-label fw-bold">Select User:</label>
+                        <select id="user-select" class="form-select">
+                            <option value="">-- Register for myself --</option>
+                            {% for user_option in users %}
+                            <option value="{{ user_option.id }}" {% if target_user and target_user.id == user_option.id %}selected{% endif %}>
+                                {{ user_option.get_full_name }} ({{ user_option.username }}) - {{ user_option.get_role_display }}
+                                {% if user_option.face_encoding %}
+                                [Face Registered]
+                                {% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Select a user to register their face, or leave empty to register your own face.</div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if has_face_encoding %}
+                    <div class="alert alert-success mb-3">
+                        <i class="fas fa-check-circle me-2"></i>
+                        You already have a face registered. You can register again to update it.
+                    </div>
+                    {% endif %}
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Make sure your face is well-lit and clearly visible. Position your face in the center of the frame.
+                    </div>
+                    
+                    <div class="text-center my-4">
+                        <div class="video-container position-relative mb-3">
+                            <video id="video" width="640" height="480" autoplay muted 
+                                class="w-100 h-100 d-block" 
+                                style="transform: scaleX(-1); /* Mirror effect */">
+                            </video>
+                            <div id="face-outline" class="position-absolute" 
+                                style="display: none; transform: scaleX(-1);">
+                            </div>
+                            <div class="scanning-line"></div>
+                        </div>
+                        
+                        <button id="capture-btn" class="btn btn-primary me-2">
+                            <i class="fas fa-camera me-2"></i> Capture
+                        </button>
+                        <button id="retake-btn" class="btn btn-outline-secondary" style="display: none;">
+                            <i class="fas fa-redo me-2"></i> Retake
+                        </button>
+                    </div>
+                    
+                    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+                    
+                    <form id="face-form" method="post" action="{% url 'register_face' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="image_data" id="image-data">
+                        <input type="hidden" name="user_id" id="selected-user-id" {% if target_user %}value="{{ target_user.id }}"{% endif %}>
+                        <div class="text-center">
+                            <button type="submit" id="register-btn" class="btn btn-success" style="display: none;">
+                                {% if target_user %}
+                                <i class="fas fa-save me-2"></i> Register Face for {{ target_user.get_full_name }}
+                                {% else %}
+                                <i class="fas fa-save me-2"></i> Register Face
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const registerBtn = document.getElementById('register-btn');
+        const imageData = document.getElementById('image-data');
+        const faceForm = document.getElementById('face-form');
+        const faceOutline = document.getElementById('face-outline');
+        
+        // User selection for admin
+        const userSelect = document.getElementById('user-select');
+        const selectedUserId = document.getElementById('selected-user-id');
+        const registerTitle = document.getElementById('register-title');
+        
+        if (userSelect) {
+            userSelect.addEventListener('change', function() {
+                selectedUserId.value = this.value;
+                
+                // Update title and button text based on selection
+                if (this.value) {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const userName = selectedOption.text.split('(')[0].trim();
+                    registerTitle.textContent = `Register Face for ${userName}`;
+                    registerBtn.innerHTML = '<i class="fas fa-save me-2"></i> Register Face for ' + userName;
+                } else {
+                    registerTitle.textContent = 'Register Your Face';
+                    registerBtn.innerHTML = '<i class="fas fa-save me-2"></i> Register Face';
+                }
+            });
+        }
+        
+        // Get access to the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ 
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                }
+            })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(function(err) {
+                console.error('Camera error: ', err);
+                alert('Error accessing the camera: ' + err.message);
+            });
+        } else {
+            alert('Camera access is not supported by your browser');
+        }
+        
+        // Capture image
+        captureBtn.addEventListener('click', function() {
+            const context = canvas.getContext('2d');
+            // Un-mirror the image for processing since we need the actual orientation
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Reset transform for future operations
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            
+            const imageDataUrl = canvas.toDataURL('image/png');
+            imageData.value = imageDataUrl;
+            
+            // Toggle buttons
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+            registerBtn.style.display = 'inline-block';
+            
+            // Freeze video
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            video.srcObject = null;
+            
+            // Add captured image to video element
+            video.poster = imageDataUrl;
+        });
+        
+        // Retake photo
+        retakeBtn.addEventListener('click', function() {
+            // Reset the video stream
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.poster = '';
+                    video.play();
+                    
+                    // Toggle buttons
+                    captureBtn.style.display = 'inline-block';
+                    retakeBtn.style.display = 'none';
+                    registerBtn.style.display = 'none';
+                    faceOutline.style.display = 'none';
+                })
+                .catch(function(err) {
+                    console.error('Camera error: ', err);
+                    alert('Error accessing the camera: ' + err.message);
+                });
+            }
+        });
+        
+        // Face recognition visual guide with simulated tracking
+        let faceTrackingActive = false;
+        let lastPosition = { x: 0, y: 0, size: 0 };
+        
+        function updateFaceOutline() {
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            
+            if (videoWidth && videoHeight) {
+                startFaceTracking();
+            }
+        }
+        
+        function startFaceTracking() {
+            if (faceTrackingActive) return;
+            faceTrackingActive = true;
+            
+            // Initial position
+            const containerWidth = video.offsetWidth;
+            const containerHeight = video.offsetHeight;
+            const initialSize = Math.min(containerWidth, containerHeight) * 0.6;
+            
+            lastPosition = {
+                x: (containerWidth - initialSize) / 2,
+                y: (containerHeight - initialSize) / 2,
+                size: initialSize
+            };
+            
+            updateOutlinePosition(lastPosition.x, lastPosition.y, lastPosition.size);
+            
+            // Start the simulated tracking animation
+            simulateFaceTracking();
+        }
+        
+        function simulateFaceTracking() {
+            if (!faceTrackingActive) return;
+            
+            // Get current position
+            let { x, y, size } = lastPosition;
+            const containerWidth = video.offsetWidth;
+            const containerHeight = video.offsetHeight;
+            
+            // Calculate small random movements to simulate tracking
+            const xMove = (Math.random() - 0.5) * 10; // -5 to +5 pixels
+            const yMove = (Math.random() - 0.5) * 10; // -5 to +5 pixels
+            const sizeChange = (Math.random() - 0.5) * 10; // -5 to +5 pixels
+            
+            // Apply movement with limits
+            x = Math.max(0, Math.min(containerWidth - size, x + xMove));
+            y = Math.max(0, Math.min(containerHeight - size, y + yMove));
+            size = Math.max(containerWidth * 0.4, Math.min(containerWidth * 0.7, size + sizeChange));
+            
+            // Update last position
+            lastPosition = { x, y, size };
+            
+            // Apply position
+            updateOutlinePosition(x, y, size);
+            
+            // Continue animation
+            requestAnimationFrame(simulateFaceTracking);
+        }
+        
+        function updateOutlinePosition(x, y, size) {
+            faceOutline.style.left = x + 'px';
+            faceOutline.style.top = y + 'px';
+            faceOutline.style.width = size + 'px';
+            faceOutline.style.height = size + 'px';
+            faceOutline.style.display = 'block';
+        }
+        
+        // Stop face tracking when capture button is clicked
+        captureBtn.addEventListener('click', function() {
+            faceTrackingActive = false;
+        });
+        
+        // Restart face tracking when retake button is clicked and video is active again
+        retakeBtn.addEventListener('click', function() {
+            // Face tracking will restart when video metadata loads
+        });
+        
+        // Show face outline after video loads
+        video.addEventListener('loadedmetadata', updateFaceOutline);
+        window.addEventListener('resize', updateFaceOutline);
+    });
+</script>
+{% endblock %} 

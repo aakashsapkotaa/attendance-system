@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block title %}Session Detail - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800">Session Detail</h1>
+            <p class="text-muted">{{ session.course.code }} - {{ session.date|date:"M d, Y" }}</p>
+        </div>
+        <div>
+            <a href="{% url 'take_attendance' session.id %}" class="btn btn-primary">
+                <i class="fas fa-clipboard-check"></i> Take Attendance
+            </a>
+            <a href="{% url 'export_attendance' session.id %}" class="btn btn-success">
+                <i class="fas fa-file-export"></i> Export
+            </a>
+            <a href="{% url 'session_update' session.id %}" class="btn btn-warning">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{% url 'session_delete' session.id %}" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+
+    <!-- Session Info Card -->
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Session Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h5>Course Details</h5>
+                        <p><strong>Code:</strong> {{ session.course.code }}</p>
+                        <p><strong>Name:</strong> {{ session.course.name }}</p>
+                        <p><strong>Teacher:</strong> {{ session.course.teacher.get_full_name }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Session Details</h5>
+                        <p><strong>Date:</strong> {{ session.date|date:"F d, Y" }}</p>
+                        <p><strong>Time:</strong> {{ session.start_time }} to {{ session.end_time }}</p>
+                        <p>
+                            <strong>Status:</strong>
+                            {% if session.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    {% if session.description %}
+                    <div class="mb-3">
+                        <h5>Description</h5>
+                        <p>{{ session.description }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Statistics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-success text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <h6>Present</h6>
+                                    <h3>{{ stats.present }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-danger text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-times-circle fa-2x mb-2"></i>
+                                    <h6>Absent</h6>
+                                    <h3>{{ stats.absent }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-warning text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h6>Late</h6>
+                                    <h3>{{ stats.late }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-info text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                    <h6>Excused</h6>
+                                    <h3>{{ stats.excused }}</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance Records -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Attendance Records</h6>
+        </div>
+        <div class="card-body">
+            {% if attendance_records %}
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Status</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Marked By</th>
+                            <th>Method</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>{{ record.student.get_full_name }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if record.status == 'PRESENT' %}bg-success
+                                    {% elif record.status == 'ABSENT' %}bg-danger
+                                    {% elif record.status == 'LATE' %}bg-warning
+                                    {% elif record.status == 'EXCUSED' %}bg-info
+                                    {% endif %}">
+                                    {{ record.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ record.time_in|default:"-" }}</td>
+                            <td>{{ record.time_out|default:"-" }}</td>
+                            <td>{{ record.marked_by.get_full_name }}</td>
+                            <td>{{ record.get_marked_with_display }}</td>
+                            <td>{{ record.comments|default:"-" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-clipboard-list fa-4x text-gray-300"></i>
+                </div>
+                <p class="lead text-gray-800">No attendance records found</p>
+                <a href="{% url 'take_attendance' session.id %}" class="btn btn-primary">
+                    <i class="fas fa-clipboard-check"></i> Take Attendance
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

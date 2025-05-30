@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if course %}Edit Course{% else %}Create Course{% endif %} - Attendance Management System
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            {% if course %}Edit Course: {{ course.name }}{% else %}Create New Course{% endif %}
+        </h1>
+        <a href="{% url 'course_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Courses
+        </a>
+    </div>
+
+    <!-- Course Form Card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Course Information</h6>
+        </div>
+        <div class="card-body">
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="code" class="form-label">Course Code</label>
+                        <input type="text" class="form-control" id="code" name="code" required 
+                               value="{{ course.code|default:'' }}" placeholder="E.g., CS101, ENG202">
+                        <small class="text-muted">Unique identifier for the course</small>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="name" class="form-label">Course Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required 
+                               value="{{ course.name|default:'' }}" placeholder="E.g., Introduction to Computer Science">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4" 
+                              placeholder="Enter course description">{{ course.description|default:'' }}</textarea>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="department" class="form-label">Department</label>
+                        <select class="form-control" id="department" name="department" required>
+                            <option value="">-- Select Department --</option>
+                            {% for department in departments %}
+                                <option value="{{ department.id }}" 
+                                    {% if course.department.id == department.id %}selected{% endif %}>
+                                    {{ department.code }} - {{ department.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="teacher" class="form-label">Teacher</label>
+                        <select class="form-control" id="teacher" name="teacher" 
+                                {% if not user.is_admin %}disabled{% endif %}>
+                            <option value="">-- Select Teacher --</option>
+                            {% for teacher in teachers %}
+                                <option value="{{ teacher.id }}" 
+                                    {% if course.teacher.id == teacher.id or not user.is_admin and user.id == teacher.id %}selected{% endif %}>
+                                    {{ teacher.get_full_name }} ({{ teacher.email }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if not user.is_admin %}
+                        <input type="hidden" name="teacher" value="{{ user.id }}">
+                        <small class="text-muted">As a teacher, you're automatically assigned to this course</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="start_date" class="form-label">Start Date</label>
+                        <input type="date" class="form-control" id="start_date" name="start_date" required
+                               value="{{ course.start_date|date:'Y-m-d'|default:'' }}">
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <label for="end_date" class="form-label">End Date</label>
+                        <input type="date" class="form-control" id="end_date" name="end_date" required
+                               value="{{ course.end_date|date:'Y-m-d'|default:'' }}">
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="students" class="form-label">Students</label>
+                    <select class="form-control" id="students" name="students" multiple size="8">
+                        {% for student in students %}
+                            <option value="{{ student.id }}" 
+                                {% if selected_students and student in selected_students %}selected{% endif %}>
+                                {{ student.get_full_name }} ({{ student.email }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Hold Ctrl (or Cmd on Mac) to select multiple students</small>
+                </div>
+                
+                <hr>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'course_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 
+                        {% if course %}Update Course{% else %}Create Course{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %} 

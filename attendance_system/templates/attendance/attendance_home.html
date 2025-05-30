@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Attendance Management{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Attendance Management</h1>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Sessions</h5>
+                    <p class="card-text">Manage attendance sessions including creation, updates and reports.</p>
+                    <a href="{% url 'session_list' %}" class="btn btn-primary">Manage Sessions</a>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Barcode Attendance</h5>
+                            <p class="card-text">Take attendance using barcode scanner or manual entry.</p>
+                            <a href="{% url 'barcode_attendance' %}" class="btn btn-primary">Barcode Attendance</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Face Recognition Attendance</h5>
+                            <p class="card-text">Take attendance using face recognition technology.</p>
+                            <a href="{% url 'face_attendance' %}" class="btn btn-primary">Face Attendance</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Register Face</h5>
+                            <p class="card-text">Register user faces for face recognition attendance.</p>
+                            <a href="{% url 'register_face' %}" class="btn btn-primary">Register Face</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Face Management</h5>
+                            <p class="card-text">Manage user face data for recognition system.</p>
+                            <a href="{% url 'face_management' %}" class="btn btn-primary">Face Management</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Search</h5>
+                    <p class="card-text">Search attendance records and sessions.</p>
+                    <a href="{% url 'global_search' %}" class="btn btn-primary">Search Attendance</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

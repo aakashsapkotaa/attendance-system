@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirm Delete User - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Confirm User Deletion</h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-exclamation-triangle"></i> Warning!</h5>
+                        <p>You are about to delete the user account for <strong>{{ user.get_full_name }}</strong> ({{ user.username }}).</p>
+                        <p>This action cannot be undone. All data associated with this user including:</p>
+                        <ul>
+                            <li>Personal information</li>
+                            <li>Attendance records</li>
+                            <li>Course enrollments</li>
+                            <li>Face recognition data</li>
+                        </ul>
+                        <p>will be permanently deleted.</p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong>Username:</strong> {{ user.username }}</div>
+                            <div class="mb-2"><strong>Full Name:</strong> {{ user.get_full_name }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-2"><strong>Email:</strong> {{ user.email }}</div>
+                            <div class="mb-2"><strong>Role:</strong> <span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'TEACHER' %}bg-primary{% else %}bg-success{% endif %}">{{ user.get_role_display }}</span></div>
+                        </div>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'user_detail' user.id %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Permanently Delete User
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

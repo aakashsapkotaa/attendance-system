@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+
+{% block title %}Face Recognition Attendance - Attendance Management System{% endblock %}
+
+{% block extra_css %}
+<style>
+    #face-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+    
+    .face-box {
+        position: absolute;
+        border: 3px solid #3a56e4;
+        border-radius: 8px;
+        box-shadow: 0 0 10px rgba(58, 86, 228, 0.5);
+        animation: pulse 2s infinite;
+        transition: all 0.3s ease-in-out;
+        pointer-events: none;
+    }
+    
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(58, 86, 228, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(58, 86, 228, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(58, 86, 228, 0); }
+    }
+    
+    /* Video container */
+    .video-container {
+        position: relative;
+        width: 640px;
+        height: 480px;
+        margin: 0 auto;
+        overflow: hidden;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .scanning-line {
+        position: absolute;
+        height: 2px;
+        background: linear-gradient(to right, transparent, #3a56e4, transparent);
+        width: 100%;
+        top: 0;
+        animation: scan 2s ease-in-out infinite;
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    @keyframes scan {
+        0% { top: 0; }
+        100% { top: 100%; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Face Recognition Attendance</h5>
+                    <a href="{% url 'register_face' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-user-plus me-1"></i> Register Face
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form id="session-form" class="mb-4">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_session" class="form-label">Select Session</label>
+                            {{ form.session }}
+                        </div>
+                    </form>
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Position students in front of the camera to mark their attendance. Multiple students can be recognized at once.
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Important Setup Instructions</h5>
+                        <p>For face recognition to work properly:</p>
+                        <ol>
+                            <li>Each student/teacher must <a href="{% url 'register_face' %}" class="alert-link">register their face</a> first</li>
+                            <li>Their face will be linked to their user account</li>
+                            <li>Only registered faces will be recognized for attendance</li>
+                            <li>Administrators can register faces for other users</li>
+                        </ol>
+                        <p class="mb-0">The system will automatically mark attendance for recognized students who are enrolled in the selected course session.</p>
+                    </div>
+                    
+                    <div class="text-center my-4">
+                        <div class="video-container position-relative mb-3">
+                            <video id="video" width="640" height="480" autoplay muted 
+                                class="w-100 h-100 d-block" 
+                                style="transform: scaleX(-1); /* Mirror effect */">
+                            </video>
+                            <div id="face-overlay" class="position-absolute" style="transform: scaleX(-1);">
+                                <!-- Face boxes will be drawn here -->
+                            </div>
+                            <div class="scanning-line"></div>
+                        </div>
+                        
+                        <button id="capture-btn" class="btn btn-primary me-2">
+                            <i class="fas fa-camera me-2"></i> Capture
+                        </button>
+                        <button id="retake-btn" class="btn btn-outline-secondary" style="display: none;">
+                            <i class="fas fa-redo me-2"></i> Retake
+                        </button>
+                    </div>
+                    
+                    <canvas id="canvas" width="640" height="480" style="display: none;"></canvas>
+                </div>
+            </div>
+            
+            <div class="card" id="results-card" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recognition Results</h5>
+                </div>
+                <div class="card-body">
+                    <div id="results-container">
+                        <!-- Results will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        const faceOverlay = document.getElementById('face-overlay');
+        const resultsCard = document.getElementById('results-card');
+        const resultsContainer = document.getElementById('results-container');
+        const sessionSelect = document.getElementById('id_session');
+        
+        // Get access to the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ 
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'user'
+                }
+            })
+            .then(function(stream) {
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(function(err) {
+                console.error('Camera error: ', err);
+                alert('Error accessing the camera: ' + err.message);
+            });
+        } else {
+            alert('Camera access is not supported by your browser');
+        }
+        
+        // Face tracking simulation
+        let faceTrackingActive = false;
+        let detectedFaces = [];
+        
+        function startFaceTracking() {
+            if (faceTrackingActive) return;
+            faceTrackingActive = true;
+            
+            // Simulate 1-3 random face positions
+            const faceCount = Math.floor(Math.random() * 3) + 1;
+            const containerWidth = video.offsetWidth;
+            const containerHeight = video.offsetHeight;
+            
+            detectedFaces = [];
+            
+            for (let i = 0; i < faceCount; i++) {
+                // Create random face positions that don't overlap too much
+                const size = Math.random() * 50 + 100; // 100-150px
+                const x = Math.random() * (containerWidth - size);
+                const y = Math.random() * (containerHeight - size);
+                
+                detectedFaces.push({
+                    id: 'face-' + i,
+                    x: x,
+                    y: y,
+                    size: size,
+                    element: null,
+                    // Give each face different movement patterns
+                    move: {
+                        x: Math.random() * 2 - 1,
+                        y: Math.random() * 2 - 1,
+                        scale: Math.random() * 0.04 - 0.02
+                    }
+                });
+            }
+            
+            // Create face box elements
+            faceOverlay.innerHTML = '';
+            detectedFaces.forEach(face => {
+                const faceBox = document.createElement('div');
+                faceBox.className = 'face-box';
+                faceBox.id = face.id;
+                faceOverlay.appendChild(faceBox);
+                face.element = faceBox;
+                
+                updateFacePosition(face);
+            });
+            
+            // Start the animation
+            requestAnimationFrame(animateFaces);
+        }
+        
+        function updateFacePosition(face) {
+            if (!face.element) return;
+            
+            face.element.style.left = face.x + 'px';
+            face.element.style.top = face.y + 'px';
+            face.element.style.width = face.size + 'px';
+            face.element.style.height = face.size + 'px';
+        }
+        
+        function animateFaces() {
+            if (!faceTrackingActive) return;
+            
+            const containerWidth = video.offsetWidth;
+            const containerHeight = video.offsetHeight;
+            
+            detectedFaces.forEach(face => {
+                // Update position with slight movement
+                face.x += face.move.x;
+                face.y += face.move.y;
+                face.size += face.move.scale;
+                
+                // Bounce off edges
+                if (face.x <= 0 || face.x + face.size >= containerWidth) {
+                    face.move.x *= -1;
+                }
+                if (face.y <= 0 || face.y + face.size >= containerHeight) {
+                    face.move.y *= -1;
+                }
+                
+                // Keep size reasonable
+                if (face.size < 80 || face.size > 160) {
+                    face.move.scale *= -1;
+                }
+                
+                // Keep within bounds
+                face.x = Math.max(0, Math.min(containerWidth - face.size, face.x));
+                face.y = Math.max(0, Math.min(containerHeight - face.size, face.y));
+                
+                updateFacePosition(face);
+            });
+            
+            requestAnimationFrame(animateFaces);
+        }
+        
+        // Start tracking when video is ready
+        video.addEventListener('loadedmetadata', function() {
+            setTimeout(startFaceTracking, 1000); // Start after 1 second
+        });
+        
+        // Stop tracking when capture button is clicked
+        captureBtn.addEventListener('click', function() {
+            faceTrackingActive = false;
+            faceOverlay.innerHTML = '';
+        });
+        
+        // Capture image and process recognition
+        captureBtn.addEventListener('click', function() {
+            const sessionId = sessionSelect.value;
+            if (!sessionId) {
+                alert('Please select a session first!');
+                return;
+            }
+            
+            const context = canvas.getContext('2d');
+            // Un-mirror the image for processing since we need the actual orientation
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Reset transform for future operations
+            context.setTransform(1, 0, 0, 1, 0, 0);
+            
+            const imageDataUrl = canvas.toDataURL('image/png');
+            
+            // Toggle buttons
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+            
+            // Freeze video
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            video.srcObject = null;
+            
+            // Add captured image to video element
+            video.poster = imageDataUrl;
+            
+            // Send to server for processing
+            processRecognition(imageDataUrl, sessionId);
+        });
+        
+        // Retake photo
+        retakeBtn.addEventListener('click', function() {
+            // Reset the video stream
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ 
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.poster = '';
+                    video.play();
+                    
+                    // Toggle buttons and clear results
+                    captureBtn.style.display = 'inline-block';
+                    retakeBtn.style.display = 'none';
+                    resultsCard.style.display = 'none';
+                    faceOverlay.innerHTML = '';
+                    
+                    // Restart face tracking after a short delay
+                    setTimeout(() => {
+                        startFaceTracking();
+                    }, 1000);
+                })
+                .catch(function(err) {
+                    console.error('Camera error: ', err);
+                    alert('Error accessing the camera: ' + err.message);
+                });
+            }
+        });
+        
+        // Process face recognition
+        function processRecognition(imageData, sessionId) {
+            // Show loading indicator
+            resultsContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Processing...</p></div>';
+            resultsCard.style.display = 'block';
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('image_data', imageData);
+            formData.append('session', sessionId);
+            
+            // Get CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            // Send to server
+            fetch("{% url 'face_attendance' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    displayResults(data);
+                } else {
+                    resultsContainer.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resultsContainer.innerHTML = `<div class="alert alert-danger">Error processing request: ${error}</div>`;
+            });
+        }
+        
+        // Display recognition results
+        function displayResults(data) {
+            let html = '';
+            
+            if (data.recognized_count === 0) {
+                html = `<div class="alert alert-warning">No faces recognized in the image.</div>`;
+            } else {
+                html = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Recognized ${data.recognized_count} student(s)
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Confidence</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.results.forEach(result => {
+                    const statusClass = result.status === 'success' ? 'text-success' : 'text-danger';
+                    const confidenceText = result.confidence ? `${(result.confidence * 100).toFixed(2)}%` : 'N/A';
+                    
+                    html += `
+                        <tr>
+                            <td>${result.name}</td>
+                            <td><span class="${statusClass}">${result.status}</span></td>
+                            <td>${confidenceText}</td>
+                            <td>${result.message}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
+            resultsContainer.innerHTML = html;
+        }
+    });
+</script>
+{% endblock %} 

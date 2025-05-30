@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+
+{% block title %}User Management - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">User Management</h1>
+        <a href="{% url 'user_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New User
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Left Sidebar -->
+        <div class="col-lg-3">
+            <!-- Search Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Search Users</h6>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'user_list' %}">
+                        <div class="mb-3">
+                            <label for="searchInput" class="form-label">Search</label>
+                            <div class="input-group">
+                                <input type="text" name="q" class="form-control" id="searchInput" 
+                                    placeholder="Name, username, email..." 
+                                    value="{{ search_query }}">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Search by name, username, or email</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Filter by Role</label>
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'user_list' %}{% if search_query %}?q={{ search_query }}{% endif %}" 
+                                    class="btn {% if not role_filter %}btn-primary{% else %}btn-outline-primary{% endif %} btn-sm">
+                                    All Users
+                                </a>
+                                <a href="{% url 'user_list' %}?role=STUDENT{% if search_query %}&q={{ search_query }}{% endif %}" 
+                                    class="btn {% if role_filter == 'STUDENT' %}btn-success{% else %}btn-outline-success{% endif %} btn-sm">
+                                    <i class="fas fa-user-graduate me-1"></i> Students Only
+                                </a>
+                                <a href="{% url 'user_list' %}?role=TEACHER{% if search_query %}&q={{ search_query }}{% endif %}" 
+                                    class="btn {% if role_filter == 'TEACHER' %}btn-info{% else %}btn-outline-info{% endif %} btn-sm">
+                                    <i class="fas fa-chalkboard-teacher me-1"></i> Teachers Only
+                                </a>
+                                <a href="{% url 'user_list' %}?role=ADMIN{% if search_query %}&q={{ search_query }}{% endif %}" 
+                                    class="btn {% if role_filter == 'ADMIN' %}btn-danger{% else %}btn-outline-danger{% endif %} btn-sm">
+                                    <i class="fas fa-user-shield me-1"></i> Admins Only
+                                </a>
+                            </div>
+                        </div>
+                        
+                        {% if search_query or role_filter %}
+                        <div class="d-grid">
+                            <a href="{% url 'user_list' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-times"></i> Clear Filters
+                            </a>
+                        </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+            
+            <!-- User Stats Card -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">User Statistics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <i class="fas fa-users text-primary me-2"></i> 
+                        <strong>Total Users:</strong> {{ users|length }}
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-user-graduate text-success me-2"></i>
+                        <strong>Students:</strong> {{ student_count }}
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-chalkboard-teacher text-info me-2"></i>
+                        <strong>Teachers:</strong> {{ teacher_count }}
+                    </div>
+                    <div class="mb-2">
+                        <i class="fas fa-user-shield text-danger me-2"></i>
+                        <strong>Admins:</strong> {{ admin_count }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <!-- Users List -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">
+                        {% if search_query %}
+                            Search Results for "{{ search_query }}"
+                        {% elif role_filter == 'STUDENT' %}
+                            Students
+                        {% elif role_filter == 'TEACHER' %}
+                            Teachers
+                        {% elif role_filter == 'ADMIN' %}
+                            Administrators
+                        {% else %}
+                            All Users
+                        {% endif %}
+                    </h6>
+                    <span class="badge bg-primary">{{ users|length }} users</span>
+                </div>
+                <div class="card-body">
+                    {% if users %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Full Name</th>
+                                    <th>Role</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Barcode ID</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.get_full_name }}</td>
+                                    <td><span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'TEACHER' %}bg-primary{% else %}bg-success{% endif %}">{{ user.get_role_display }}</span></td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.phone_number|default:"-" }}</td>
+                                    <td>{{ user.barcode_id|default:"-" }}</td>
+                                    <td>
+                                        <a href="{% url 'user_detail' user.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{% url 'user_update' user.id %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        {% if user != request.user %}
+                                        <a href="{% url 'user_delete' user.id %}" class="btn btn-danger btn-sm">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-search fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No users found matching your search criteria.</p>
+                        <a href="{% url 'user_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-sync"></i> Clear Search
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

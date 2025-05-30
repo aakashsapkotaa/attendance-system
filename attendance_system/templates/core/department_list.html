@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Departments - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Departments</h1>
+        <a href="{% url 'department_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Department
+        </a>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">All Departments</h6>
+        </div>
+        <div class="card-body">
+            {% if departments %}
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Head</th>
+                            <th>Courses</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for department in departments %}
+                        <tr>
+                            <td>{{ department.code }}</td>
+                            <td>{{ department.name }}</td>
+                            <td>
+                                {% if department.head %}
+                                {{ department.head.get_full_name }}
+                                {% else %}
+                                <span class="text-muted">Not assigned</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ department.courses.count }}</td>
+                            <td>
+                                <a href="{% url 'department_detail' department.id %}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'department_update' department.id %}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{% url 'department_delete' department.id %}" class="btn btn-danger btn-sm">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-building fa-4x text-gray-300"></i>
+                </div>
+                <p class="lead text-gray-800">No departments found</p>
+                <a href="{% url 'department_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add Department
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user.get_full_name }} - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">User Details</h1>
+        <div>
+            <a href="{% url 'user_update' user.id %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit User
+            </a>
+            {% if user != request.user %}
+            <a href="{% url 'user_delete' user.id %}" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete User
+            </a>
+            {% endif %}
+            <a href="{% url 'user_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Users
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- User Details -->
+        <div class="col-xl-4 col-lg-5">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">User Information</h6>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        {% if user.profile_pic %}
+                        <img src="{{ user.profile_pic.url }}" class="rounded-circle mb-3" width="150" height="150" alt="Profile Picture">
+                        {% else %}
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                            <span class="text-white" style="font-size: 48px;">{{ user.first_name|first }}{{ user.last_name|first }}</span>
+                        </div>
+                        {% endif %}
+                        <h5 class="mb-1">{{ user.get_full_name }}</h5>
+                        <p class="mb-0">
+                            <span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'TEACHER' %}bg-primary{% else %}bg-success{% endif %} px-3 py-2 rounded-pill">
+                                {{ user.get_role_display }}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="border-top pt-3">
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Username:</div>
+                            <div class="col-6 text-end">{{ user.username }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Email:</div>
+                            <div class="col-6 text-end">{{ user.email }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Phone Number:</div>
+                            <div class="col-6 text-end">{{ user.phone_number|default:"Not provided" }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Barcode ID:</div>
+                            <div class="col-6 text-end">{{ user.barcode_id|default:"Not registered" }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Date Joined:</div>
+                            <div class="col-6 text-end">{{ user.date_joined|date:"M d, Y" }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Last Login:</div>
+                            <div class="col-6 text-end">{{ user.last_login|date:"M d, Y H:i"|default:"Never" }}</div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-6 text-muted">Active:</div>
+                            <div class="col-6 text-end">
+                                {% if user.is_active %}
+                                <span class="badge bg-success">Yes</span>
+                                {% else %}
+                                <span class="badge bg-danger">No</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8 col-lg-7">
+            {% if user.role == 'TEACHER' %}
+            <!-- Courses Taught -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Courses Taught</h6>
+                </div>
+                <div class="card-body">
+                    {% if user.teacher_courses.all %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Students</th>
+                                    <th>Duration</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in user.teacher_courses.all %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.department.name }}</td>
+                                    <td>{{ course.students.count }}</td>
+                                    <td>{{ course.start_date|date:"M d, Y" }} - {{ course.end_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-book fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">No courses assigned yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if user.role == 'STUDENT' %}
+            <!-- Enrolled Courses -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Enrolled Courses</h6>
+                </div>
+                <div class="card-body">
+                    {% if user.courses.all %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Department</th>
+                                    <th>Teacher</th>
+                                    <th>Duration</th>
+                                    <th>View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for course in user.courses.all %}
+                                <tr>
+                                    <td>{{ course.code }}</td>
+                                    <td>{{ course.name }}</td>
+                                    <td>{{ course.department.name }}</td>
+                                    <td>{{ course.teacher.get_full_name }}</td>
+                                    <td>{{ course.start_date|date:"M d, Y" }} - {{ course.end_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'course_detail' course.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <div class="mb-3">
+                            <i class="fas fa-book fa-4x text-gray-300"></i>
+                        </div>
+                        <p class="lead text-gray-800">Not enrolled in any courses yet.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendance Summary -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-success text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                        <h5>Present</h5>
+                                        <h3>{{ user.attendance_set.all|length }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-danger text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-times-circle fa-2x mb-2"></i>
+                                        <h5>Absent</h5>
+                                        <h3>0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-warning text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-clock fa-2x mb-2"></i>
+                                        <h5>Late</h5>
+                                        <h3>0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-info text-white shadow">
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                        <h5>Total</h5>
+                                        <h3>{{ user.attendance_set.all|length }}</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

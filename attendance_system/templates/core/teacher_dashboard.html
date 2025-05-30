@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Teacher Dashboard - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Teacher Dashboard</h1>
+        <a href="{% url 'session_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New Session
+        </a>
+    </div>
+
+    <!-- Course Statistics -->
+    <div class="row">
+        {% for stats in course_stats %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                {{ stats.course.code }} - {{ stats.course.name }}</div>
+                            <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                Sessions: {{ stats.sessions }} | Students: {{ stats.students }}
+                            </div>
+                            <div class="mt-2 small">
+                                Attendance Rate: {{ stats.attendance_rate|floatformat:1 }}%
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-graduation-cap fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                You are not assigned to any courses yet.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Upcoming Sessions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Upcoming Sessions</h6>
+                    <a href="{% url 'session_list' %}" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Course</th>
+                                    <th>Room</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in upcoming_sessions %}
+                                <tr>
+                                    <td>{{ session.date }}</td>
+                                    <td>{{ session.start_time }} - {{ session.end_time }}</td>
+                                    <td>{{ session.course.name }}</td>
+                                    <td>{{ session.room }}</td>
+                                    <td>
+                                        <a href="{% url 'session_detail' session.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{% url 'take_attendance' session.id %}" class="btn btn-success btn-sm">
+                                            <i class="fas fa-clipboard-check"></i> Attendance
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center">No upcoming sessions scheduled.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row">
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'barcode_attendance' %}" class="btn btn-primary mb-2">
+                            <i class="fas fa-barcode"></i> Take Barcode Attendance
+                        </a>
+                        <a href="{% url 'face_attendance' %}" class="btn btn-success mb-2">
+                            <i class="fas fa-camera"></i> Take Face Attendance
+                        </a>
+                        <a href="{% url 'course_create' %}" class="btn btn-info">
+                            <i class="fas fa-plus"></i> Create New Course
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-8 col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Your Courses</h6>
+                </div>
+                <div class="card-body">
+                    {% if courses %}
+                    <div class="list-group">
+                        {% for course in courses %}
+                        <a href="{% url 'course_detail' course.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ course.code }}</strong> - {{ course.name }}
+                                <div class="small text-muted">{{ course.department.name }}</div>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ course.students.count }} Students</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-center">You are not assigned to any courses yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

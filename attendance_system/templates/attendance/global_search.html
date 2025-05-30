@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">Search Results</h1>
+            <p class="text-muted">Results for "{{ query }}"</p>
+        </div>
+    </div>
+
+    <!-- Mobile Search (visible only on small screens) -->
+    <div class="d-block d-md-none mb-4">
+        <form id="mobileSearchForm" method="get" action="{% url 'global_search' %}">
+            <div class="input-group">
+                <input type="text" name="q" class="form-control" 
+                    placeholder="Search users, courses, sessions..." 
+                    value="{{ query }}">
+                <button class="btn btn-outline-primary" type="submit">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Users</h5>
+            <span class="badge bg-primary">{{ users|length }} results</span>
+        </div>
+        <div class="card-body">
+            {% if users %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>
+                                {% if user.profile_pic %}
+                                <img src="{{ user.profile_pic.url }}" class="rounded-circle me-2" width="30" height="30">
+                                {% else %}
+                                <div class="bg-primary rounded-circle d-inline-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                                    <span class="text-white" style="font-size: 12px;">{{ user.first_name|first }}{{ user.last_name|first }}</span>
+                                </div>
+                                {% endif %}
+                                {{ user.get_full_name }}
+                            </td>
+                            <td>{{ user.username }}</td>
+                            <td><span class="badge bg-secondary">{{ user.get_role_display }}</span></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    {% if user.is_student and user_is_teacher_or_admin %}
+                                    <a href="{% url 'register_face' %}?user_id={{ user.id }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-camera me-1"></i> Register Face
+                                    </a>
+                                    {% endif %}
+                                    {% if user.is_admin %}
+                                    <a href="{% url 'user_detail' pk=user.id %}" class="btn btn-outline-secondary">
+                                        <i class="fas fa-eye me-1"></i> View
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No users found matching your search.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Courses Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Courses</h5>
+            <span class="badge bg-primary">{{ courses|length }} results</span>
+        </div>
+        <div class="card-body">
+            {% if courses %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Students</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course in courses %}
+                        <tr>
+                            <td><strong>{{ course.code }}</strong></td>
+                            <td>{{ course.name }}</td>
+                            <td>{{ course.department.name }}</td>
+                            <td>{{ course.students.count }}</td>
+                            <td>
+                                <a href="{% url 'course_detail' pk=course.id %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No courses found matching your search.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sessions Section -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Sessions</h5>
+            <span class="badge bg-primary">{{ sessions|length }} results</span>
+        </div>
+        <div class="card-body">
+            {% if sessions %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Course</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr>
+                            <td>{{ session.course.code }} - {{ session.course.name }}</td>
+                            <td>{{ session.date }}</td>
+                            <td>{{ session.start_time }} - {{ session.end_time }}</td>
+                            <td>
+                                {% if session.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'session_detail' pk=session.id %}" class="btn btn-outline-primary">
+                                        <i class="fas fa-eye me-1"></i> View
+                                    </a>
+                                    {% if user.is_teacher or user.is_admin %}
+                                    <a href="{% url 'take_attendance' session_id=session.id %}" class="btn btn-outline-success">
+                                        <i class="fas fa-clipboard-check me-1"></i> Take Attendance
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No sessions found matching your search.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not users and not courses and not sessions %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        No results found for your search query. Please try a different search term.
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

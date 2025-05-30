@@ -1,0 +1,341 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - Attendance Management System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Admin Dashboard</h1>
+        <div>
+            <a href="{% url 'user_list' %}" class="btn btn-primary">
+                <i class="fas fa-users"></i> Manage Users
+            </a>
+            <a href="{% url 'department_list' %}" class="btn btn-primary ms-2">
+                <i class="fas fa-building"></i> Manage Departments
+            </a>
+        </div>
+    </div>
+
+    <!-- System Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Users</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ user_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Courses</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ course_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-book fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Departments</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ department_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-building fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Total Sessions</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ session_count }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-calendar-alt fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Statistics -->
+    <div class="row">
+        <!-- User Role Distribution -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">User Distribution</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-bar">
+                        <canvas id="userRoleChart"></canvas>
+                    </div>
+                    <hr>
+                    <div class="text-center mt-4">
+                        <span class="me-3"><i class="fas fa-circle text-primary"></i> Admins: {{ admin_count }}</span>
+                        <span class="me-3"><i class="fas fa-circle text-success"></i> Teachers: {{ teacher_count }}</span>
+                        <span><i class="fas fa-circle text-info"></i> Students: {{ student_count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Users -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Users</h6>
+                    <a href="{% url 'user_list' %}" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>
+                                        <span class="badge {% if user.role == 'ADMIN' %}bg-danger{% elif user.role == 'TEACHER' %}bg-primary{% else %}bg-success{% endif %}">
+                                            {{ user.get_role_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'user_detail' user.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'user_update' user.id %}" class="btn btn-warning btn-sm">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No users found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attendance & Course Analytics -->
+    <div class="row">
+        <!-- Attendance Overview -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Attendance Overview</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-success text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                                    <h6>Present</h6>
+                                    <h4>{{ present_count }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-danger text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-times-circle fa-2x mb-2"></i>
+                                    <h6>Absent</h6>
+                                    <h4>{{ absent_count }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-warning text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h6>Late</h6>
+                                    <h4>{{ late_count }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-4">
+                            <div class="card bg-info text-white shadow">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                    <h6>Excused</h6>
+                                    <h4>{{ excused_count }}</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Sessions -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold text-primary">Recent Sessions</h6>
+                    <a href="{% url 'session_list' %}" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in recent_sessions %}
+                                <tr>
+                                    <td>{{ session.course.code }}</td>
+                                    <td>{{ session.date|date:"M d, Y" }}</td>
+                                    <td>{{ session.start_time }} - {{ session.end_time }}</td>
+                                    <td>
+                                        <a href="{% url 'session_detail' session.id %}" class="btn btn-info btn-sm">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'take_attendance' session.id %}" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-clipboard-check"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No sessions found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'user_create' %}" class="card text-white bg-primary shadow text-center p-4 h-100 d-flex flex-column justify-content-center">
+                                <i class="fas fa-user-plus fa-3x mb-3"></i>
+                                <h5>Add User</h5>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'course_create' %}" class="card text-white bg-success shadow text-center p-4 h-100 d-flex flex-column justify-content-center">
+                                <i class="fas fa-book-medical fa-3x mb-3"></i>
+                                <h5>Add Course</h5>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'department_create' %}" class="card text-white bg-info shadow text-center p-4 h-100 d-flex flex-column justify-content-center">
+                                <i class="fas fa-building fa-3x mb-3"></i>
+                                <h5>Add Department</h5>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{% url 'session_create' %}" class="card text-white bg-warning shadow text-center p-4 h-100 d-flex flex-column justify-content-center">
+                                <i class="fas fa-calendar-plus fa-3x mb-3"></i>
+                                <h5>Create Session</h5>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% csrf_token %}
+
+<!-- Hidden data for charts -->
+<div id="chartData" 
+    data-admin-count="{% if admin_count %}{{ admin_count }}{% else %}0{% endif %}"
+    data-teacher-count="{% if teacher_count %}{{ teacher_count }}{% else %}0{% endif %}"
+    data-student-count="{% if student_count %}{{ student_count }}{% else %}0{% endif %}">
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get data from data attributes
+    const chartData = document.getElementById('chartData');
+    const adminCount = parseInt(chartData.dataset.adminCount || 0);
+    const teacherCount = parseInt(chartData.dataset.teacherCount || 0);
+    const studentCount = parseInt(chartData.dataset.studentCount || 0);
+    
+    // User Role Chart
+    const userRoleCtx = document.getElementById('userRoleChart').getContext('2d');
+    const userRoleChart = new Chart(userRoleCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Admins', 'Teachers', 'Students'],
+            datasets: [{
+                data: [adminCount, teacherCount, studentCount],
+                backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc'],
+                hoverBackgroundColor: ['#2e59d9', '#17a673', '#2c9faf'],
+                hoverBorderColor: "rgba(234, 236, 244, 1)"
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            cutout: '70%'
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}
